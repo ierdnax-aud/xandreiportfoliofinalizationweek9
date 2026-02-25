@@ -1,5 +1,10 @@
 $uri = "https://xandreiportfoliofinalizationweek9.vercel.app/api/security"
 
+Write-Host ""
+Write-Host "🚨 SECURITY EVENT SIMULATOR - Portfolio Dashboard" -ForegroundColor DarkRed
+Write-Host "========================================" -ForegroundColor DarkRed
+Write-Host ""
+
 # SQL Injection attacks
 $e1 = @{type="SQL_INJECTION"; severity="CRITICAL"; ip="192.168.1.100"; path="/api/users"; reason="SQL: OR 1=1"; userAgent="Mozilla"; method="GET"}
 $e2 = @{type="SQL_INJECTION"; severity="CRITICAL"; ip="203.45.120.55"; path="/api/products"; reason="SQL: UNION SELECT"; userAgent="sqlmap"; method="GET"}
@@ -22,15 +27,23 @@ $e10 = @{type="BOT_DETECTED"; severity="LOW"; ip="198.18.25.10"; path="/"; reaso
 
 $all = $e1, $e2, $e3, $e4, $e5, $e6, $e7, $e8, $e9, $e10
 
+Write-Host "📤 Inserting events..." -ForegroundColor Cyan
+
 foreach ($event in $all) {
     $body = $event | ConvertTo-Json
     $result = Invoke-RestMethod -Method Post -Uri $uri -ContentType "application/json" -Body $body
-    Write-Host ("Inserted: {0}" -f $event.type)
+    Write-Host ("   ✓ Inserted: {0}" -f $event.type)
 }
 
 Write-Host ""
+Write-Host "=== SECURITY METRICS ===" -ForegroundColor Green
 $metrics = Invoke-RestMethod -Uri ($uri + "?type=metrics")
-Write-Host ("Total: {0}" -f $metrics.totalRequests)
-Write-Host ("SQL Injections: {0}" -f $metrics.sqlInjectionAttempts)
-Write-Host ("XSS: {0}" -f $metrics.xssAttempts)
-Write-Host ("Brute Force: {0}" -f $metrics.bruteForceAttempts)
+Write-Host ("├─ Total Requests: {0}" -f $metrics.totalRequests)
+Write-Host ("├─ Blocked Requests: {0}" -f $metrics.blockedRequests)
+Write-Host ("├─ SQL Injection Attempts: {0}" -f $metrics.sqlInjectionAttempts) -ForegroundColor Red
+Write-Host ("├─ XSS Attempts: {0}" -f $metrics.xssAttempts) -ForegroundColor Yellow
+Write-Host ("├─ Brute Force Attempts: {0}" -f $metrics.bruteForceAttempts) -ForegroundColor DarkYellow
+Write-Host ("├─ Rate Limit Hits: {0}" -f $metrics.rateLimitHits) -ForegroundColor Blue
+Write-Host ("└─ Bot Detections: {0}" -f $metrics.botDetections) -ForegroundColor Magenta
+Write-Host ""
+Write-Host "✓ Dashboard updated with attack distribution data" -ForegroundColor Green

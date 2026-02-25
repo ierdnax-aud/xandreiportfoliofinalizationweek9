@@ -342,13 +342,15 @@ export default function SecurityAnalyticsPanel() {
           <div className="bg-white border border-gray-200 rounded-lg p-5">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Attack Types Distribution</h3>
             <div className="space-y-3">
-              {[
-                { label: 'SQL Injection', value: metrics.sqlInjectionAttempts, color: 'bg-red-500', width: metrics.sqlInjectionAttempts > 0 ? (metrics.sqlInjectionAttempts / Math.max(metrics.sqlInjectionAttempts, metrics.xssAttempts, metrics.bruteForceAttempts, 1) * 100) : 0 },
-                { label: 'Brute Force', value: metrics.bruteForceAttempts, color: 'bg-orange-500', width: metrics.bruteForceAttempts > 0 ? (metrics.bruteForceAttempts / Math.max(metrics.sqlInjectionAttempts, metrics.xssAttempts, metrics.bruteForceAttempts, 1) * 100) : 0 },
-                { label: 'XSS Attacks', value: metrics.xssAttempts, color: 'bg-yellow-500', width: metrics.xssAttempts > 0 ? (metrics.xssAttempts / Math.max(metrics.sqlInjectionAttempts, metrics.xssAttempts, metrics.bruteForceAttempts, 1) * 100) : 0 },
-                { label: 'Rate Limit', value: metrics.rateLimitHits, color: 'bg-blue-500', width: metrics.rateLimitHits > 0 ? (metrics.rateLimitHits / Math.max(metrics.rateLimitHits, 1) * 100) : 0 },
-                { label: 'Bot Detection', value: metrics.botDetections, color: 'bg-purple-500', width: metrics.botDetections > 0 ? (metrics.botDetections / Math.max(metrics.botDetections, 1) * 100) : 0 },
-              ].map((attack) => (
+              {(() => {
+                const maxValue = Math.max(metrics.sqlInjectionAttempts, metrics.bruteForceAttempts, metrics.xssAttempts, metrics.rateLimitHits, metrics.botDetections, 1)
+                return [
+                  { label: 'SQL Injection', value: metrics.sqlInjectionAttempts, color: 'bg-red-500', width: metrics.sqlInjectionAttempts > 0 ? (metrics.sqlInjectionAttempts / maxValue * 100) : 0 },
+                  { label: 'Brute Force', value: metrics.bruteForceAttempts, color: 'bg-orange-500', width: metrics.bruteForceAttempts > 0 ? (metrics.bruteForceAttempts / maxValue * 100) : 0 },
+                  { label: 'XSS Attacks', value: metrics.xssAttempts, color: 'bg-yellow-500', width: metrics.xssAttempts > 0 ? (metrics.xssAttempts / maxValue * 100) : 0 },
+                  { label: 'Rate Limit', value: metrics.rateLimitHits, color: 'bg-blue-500', width: metrics.rateLimitHits > 0 ? (metrics.rateLimitHits / maxValue * 100) : 0 },
+                  { label: 'Bot Detection', value: metrics.botDetections, color: 'bg-purple-500', width: metrics.botDetections > 0 ? (metrics.botDetections / maxValue * 100) : 0 },
+                ].map((attack) => (
                 <div key={attack.label}>
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-xs font-medium text-gray-700">{attack.label}</p>
