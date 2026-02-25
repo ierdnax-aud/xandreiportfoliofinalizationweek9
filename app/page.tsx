@@ -52,7 +52,7 @@ export default async function Home() {
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
                 <img 
-                  src="/DREI.png" 
+                  src="/profileheroxandrei25.jpg" 
                   alt="Jan Padua" 
                   className="relative w-72 h-72 md:w-80 md:h-80 rounded-2xl shadow-2xl object-cover ring-2 ring-white/50 dark:ring-white/10 group-hover:scale-105 transition-transform duration-500"
                 />
