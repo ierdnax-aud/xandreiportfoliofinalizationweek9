@@ -1,4 +1,5 @@
 // Security monitoring and incident response utilities
+import { kv } from '@vercel/kv'
 
 export interface SecurityEvent {
   id: string
@@ -22,9 +23,9 @@ export interface SecurityMetrics {
   bruteForceAttempts: number
 }
 
-// In-memory store for demo (use Redis/Database in production)
-const securityEvents: SecurityEvent[] = []
-const metrics: SecurityMetrics = {
+// In-memory store for fallback
+let securityEvents: SecurityEvent[] = []
+let metrics: SecurityMetrics = {
   totalRequests: 0,
   blockedRequests: 0,
   rateLimitHits: 0,
@@ -33,6 +34,39 @@ const metrics: SecurityMetrics = {
   xssAttempts: 0,
   bruteForceAttempts: 0,
 }
+
+const KV_EVENTS_KEY = 'security:events'
+const KV_METRICS_KEY = 'security:metrics'
+const MAX_EVENTS = 1000
+
+// Initialize from KV on startup
+async function initializeFromKV() {
+  try {
+    const [kvEvents, kvMetrics] = await Promise.all([
+      kv.get<SecurityEvent[]>(KV_EVENTS_KEY),
+      kv.get<SecurityMetrics>(KV_METRICS_KEY),
+    ])
+    if (kvEvents) securityEvents = kvEvents
+    if (kvMetrics) metrics = kvMetrics
+  } catch (error) {
+    console.log('KV not available, using in-memory storage')
+  }
+}
+
+// Save to KV (non-blocking)
+async function saveToKV() {
+  try {
+    await Promise.all([
+      kv.set(KV_EVENTS_KEY, securityEvents, { ex: 86400 * 7 }), // 7 days
+      kv.set(KV_METRICS_KEY, metrics, { ex: 86400 * 7 }),
+    ])
+  } catch (error) {
+    // Silently fail if KV not available
+  }
+}
+
+// Initialize on module load
+initializeFromKV()
 
 export function logSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timestamp'>) {
   const securityEvent: SecurityEvent = {
@@ -69,9 +103,12 @@ export function logSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timestamp'>)
   console.error('🚨 SECURITY EVENT:', securityEvent)
 
   // Keep only last 1000 events in memory
-  if (securityEvents.length > 1000) {
+  if (securityEvents.length > MAX_EVENTS) {
     securityEvents.shift()
   }
+
+  // Save to KV in background (non-blocking)
+  saveToKV().catch(err => console.log('KV save failed:', err))
 
   return securityEvent
 }
@@ -84,11 +121,13 @@ export function getSecurityMetrics(): SecurityMetrics {
   return { ...metrics }
 }
 
-export function clearSecurityEvents() {
+export async function clearSecurityEvents() {
   securityEvents.length = 0
   Object.keys(metrics).forEach(key => {
     metrics[key as keyof SecurityMetrics] = 0
   })
+  // Clear KV too
+  await saveToKV()
 }
 
 // Incident Response Checklist

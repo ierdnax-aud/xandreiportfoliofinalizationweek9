@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     if (data.clear) {
-      clearSecurityEvents()
+      await clearSecurityEvents()
       return NextResponse.json({ ok: true })
     }
 
