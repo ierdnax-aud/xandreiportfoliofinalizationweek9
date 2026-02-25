@@ -129,48 +129,49 @@ export async function logSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timest
 }
 
 export async function getSecurityEvents(limit: number = 100): Promise<SecurityEvent[]> {
-  if (!kvAvailable) {
-    return memoryEvents.slice(0, limit)
-  }
-
   try {
     const kvClient = await loadKV()
-    if (!kvClient) {
-      return memoryEvents.slice(0, limit)
-    }
     
-    const events = await kvClient.lrange(KV_EVENTS_KEY, 0, limit - 1)
-    if (!events || events.length === 0) {
-      return memoryEvents.slice(0, limit)
+    if (kvClient && process.env.KV_REST_API_URL) {
+      try {
+        const events = await kvClient.lrange(KV_EVENTS_KEY, 0, limit - 1)
+        if (events && events.length > 0) {
+          const parsed = events.map((e) => JSON.parse(typeof e === 'string' ? e : JSON.stringify(e))) as SecurityEvent[]
+          return parsed
+        }
+      } catch (kvError) {
+        console.warn('Error reading from KV:', kvError)
+      }
     }
-    return events.map((e) => JSON.parse(typeof e === 'string' ? e : JSON.stringify(e))) as SecurityEvent[]
   } catch (error) {
-    console.warn('Failed to get events from KV, using memory:', error)
-    return memoryEvents.slice(0, limit)
+    console.warn('Failed to load KV:', error)
   }
+
+  // Fallback to memory
+  return memoryEvents.slice(0, limit)
 }
 
 export async function getSecurityMetrics(): Promise<SecurityMetrics> {
-  if (!kvAvailable) {
-    return { ...memoryMetrics }
-  }
-
   try {
     const kvClient = await loadKV()
-    if (!kvClient) {
-      return { ...memoryMetrics }
-    }
     
-    const stored = await kvClient.get(KV_METRICS_KEY)
-    if (stored) {
-      const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored
-      return parsed as SecurityMetrics
+    if (kvClient && process.env.KV_REST_API_URL) {
+      try {
+        const stored = await kvClient.get(KV_METRICS_KEY)
+        if (stored) {
+          const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored
+          return parsed as SecurityMetrics
+        }
+      } catch (kvError) {
+        console.warn('Error reading metrics from KV:', kvError)
+      }
     }
-    return { ...memoryMetrics }
   } catch (error) {
-    console.warn('Failed to get metrics from KV, using memory:', error)
-    return { ...memoryMetrics }
+    console.warn('Failed to load KV:', error)
   }
+
+  // Fallback to memory
+  return { ...memoryMetrics }
 }
 
 export async function clearSecurityEvents() {
