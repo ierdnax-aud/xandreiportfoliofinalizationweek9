@@ -1,6 +1,18 @@
 // Security monitoring and incident response utilities
 
-import { kv } from '@vercel/kv'
+// Lazy load KV to avoid build errors when not available
+let kv: any = null
+const loadKV = async () => {
+  if (!kv && process.env.KV_REST_API_URL) {
+    try {
+      const mod = await import('@vercel/kv')
+      kv = mod.kv
+    } catch (e) {
+      console.warn('KV not available:', e)
+    }
+  }
+  return kv
+}
 
 export interface SecurityEvent {
   id: string
@@ -47,9 +59,12 @@ async function pushEventToKV(event: SecurityEvent) {
   if (!kvAvailable) return
 
   try {
+    const kvClient = await loadKV()
+    if (!kvClient) return
+    
     // Use LPUSH to add to the front of the list, LTRIM to keep last 1000
-    await kv.lpush(KV_EVENTS_KEY, JSON.stringify(event))
-    await kv.ltrim(KV_EVENTS_KEY, 0, MAX_EVENTS - 1)
+    await kvClient.lpush(KV_EVENTS_KEY, JSON.stringify(event))
+    await kvClient.ltrim(KV_EVENTS_KEY, 0, MAX_EVENTS - 1)
   } catch (error) {
     console.warn('Failed to push event to KV:', error)
   }
@@ -59,7 +74,10 @@ async function updateMetricsInKV(metrics: SecurityMetrics) {
   if (!kvAvailable) return
 
   try {
-    await kv.set(KV_METRICS_KEY, JSON.stringify(metrics))
+    const kvClient = await loadKV()
+    if (!kvClient) return
+    
+    await kvClient.set(KV_METRICS_KEY, JSON.stringify(metrics))
   } catch (error) {
     console.warn('Failed to update metrics in KV:', error)
   }
@@ -116,7 +134,12 @@ export async function getSecurityEvents(limit: number = 100): Promise<SecurityEv
   }
 
   try {
-    const events = await kv.lrange(KV_EVENTS_KEY, 0, limit - 1)
+    const kvClient = await loadKV()
+    if (!kvClient) {
+      return memoryEvents.slice(0, limit)
+    }
+    
+    const events = await kvClient.lrange(KV_EVENTS_KEY, 0, limit - 1)
     if (!events || events.length === 0) {
       return memoryEvents.slice(0, limit)
     }
@@ -133,7 +156,12 @@ export async function getSecurityMetrics(): Promise<SecurityMetrics> {
   }
 
   try {
-    const stored = await kv.get(KV_METRICS_KEY)
+    const kvClient = await loadKV()
+    if (!kvClient) {
+      return { ...memoryMetrics }
+    }
+    
+    const stored = await kvClient.get(KV_METRICS_KEY)
     if (stored) {
       const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored
       return parsed as SecurityMetrics
@@ -148,8 +176,11 @@ export async function getSecurityMetrics(): Promise<SecurityMetrics> {
 export async function clearSecurityEvents() {
   if (kvAvailable) {
     try {
-      await kv.del(KV_EVENTS_KEY)
-      await kv.del(KV_METRICS_KEY)
+      const kvClient = await loadKV()
+      if (kvClient) {
+        await kvClient.del(KV_EVENTS_KEY)
+        await kvClient.del(KV_METRICS_KEY)
+      }
     } catch (error) {
       console.warn('Failed to clear KV:', error)
     }
